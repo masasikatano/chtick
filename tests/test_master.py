@@ -105,3 +105,96 @@ def test_ulistプローブで存在銘柄のみ抽出(monkeypatch):
     assert set(got) == {"600000", "300750"}
     assert got["600000"]["exchange"] == "上海"
     assert got["300750"]["exchange"] == "深セン"
+
+
+class _FakeTextResp:
+    def __init__(self, text):
+        self.text = text
+
+    def raise_for_status(self):
+        pass
+
+
+SSE_SAMPLE = (
+    'var _t = new Array();\n'
+    '_t.push({val:"600000",val2:"浦発銀行",val3:"pfyx"});\n'
+    '_t.push({val:"688981",val2:"中芯国際",val3:"zxgj"});\n'
+    '_t.push({val:"360001",val2:"农行优1",val3:"nxy1"});\n'  # 優先株は除外
+    '_t.push({val:"900901",val2:"儀電B股",val3:"ydbg"});\n'  # B股は除外
+    '_t.push({val:"510300",val2:"300ETF",val3:"etf"});\n'   # ETFは除外
+)
+
+
+def test_sse公式一覧は上海A株のみ抽出(monkeypatch):
+    from src import master
+
+    monkeypatch.setattr(master.requests, "get",
+                        lambda *a, **k: _FakeTextResp(SSE_SAMPLE))
+    recs = master.fetch_sse()
+    assert [r["ticker"] for r in recs] == ["600000", "688981"]
+    assert recs[0]["exchange"] == "上海"
+    assert recs[0]["name"] == "浦発銀行"
+
+
+SZSE_PAGE1 = [{
+    "metadata": {"pagecount": 2},
+    "data": [
+        {"agdm": "000001", "agjc": "<a href='x'><u>平安銀行</u></a>"},
+        {"agdm": "200002", "agjc": "<a href='x'><u>万  科Ｂ</u></a>"},  # B股は除外
+    ],
+}]
+SZSE_PAGE2 = [{
+    "metadata": {"pagecount": 2},
+    "data": [
+        {"agdm": "300750", "agjc": "<a href='x'><u>寧徳時代</u></a>"},
+    ],
+}]
+
+
+def test_szse公式レポートは全ページを深センA株のみ抽出(monkeypatch):
+    from src import master
+
+    pages = iter([SZSE_PAGE1, SZSE_PAGE2])
+
+    def fake_get(url, params=None, timeout=30):
+        return _FakeResp(next(pages))
+
+    monkeypatch.setattr(master.time, "sleep", lambda s: None)
+    monkeypatch.setattr(master.requests, "Session", lambda: type("S", (), {
+        "headers": {}, "get": staticmethod(fake_get)})())
+    recs = master._fetch_szse_report()
+    assert [r["ticker"] for r in recs] == ["000001", "300750"]
+    assert recs[0]["exchange"] == "深セン"
+    assert recs[0]["name"] == "平安銀行"
+
+
+CNINFO_SAMPLE = {"stockList": [
+    {"code": "000001", "zwjc": "平安银行", "category": "A股"},
+    {"code": "200002", "zwjc": "万科B", "category": "B股"},   # B股は除外
+    {"code": "300750", "zwjc": "宁德时代", "category": "A股"},
+]}
+
+
+def test_cninfo一覧は深センA株のみ抽出(monkeypatch):
+    from src import master
+
+    monkeypatch.setattr(master, "_fetch_szse_report", lambda timeout=30: None)
+    monkeypatch.setattr(master.requests, "get",
+                        lambda *a, **k: _FakeResp(CNINFO_SAMPLE))
+    recs = master.fetch_szse()
+    assert [r["ticker"] for r in recs] == ["000001", "300750"]
+    assert recs[0]["exchange"] == "深セン"
+    assert recs[0]["name"] == "平安银行"
+
+
+def test_load_masterはclist失敗時に取引所公式にフォールバック(monkeypatch, tmp_path):
+    from src import master
+
+    monkeypatch.setattr(master, "fetch_all", lambda: None)
+    monkeypatch.setattr(master, "fetch_sse", lambda timeout=30: [
+        {"ticker": "600000", "name": "浦発銀行", "exchange": "上海", "fields": {}}])
+    monkeypatch.setattr(master, "fetch_szse", lambda timeout=30: [
+        {"ticker": "000001", "name": "平安銀行", "exchange": "深セン", "fields": {}}])
+    monkeypatch.setattr(master, "SNAPSHOT", tmp_path / "master.json")
+    recs = master.load_master()
+    assert [r["ticker"] for r in recs] == ["600000", "000001"]

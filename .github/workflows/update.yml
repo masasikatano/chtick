@@ -25,7 +25,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/data/latest.json data/master.json
+          git add docs/data/latest.json
+          git add data/master.json 2>/dev/null || echo "data/master.json は未生成"
           if git diff --cached --quiet; then
             echo "no changes"
             exit 0

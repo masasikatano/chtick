@@ -1,0 +1,10 @@
+{
+  "$schema": "https://kimi.ai/config/settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python:*)",
+      "Bash(.venv/bin/python -m pytest:*)",
+      "Bash(python3 -m pytest tests/:*)"
+    ]
+  }
+}
