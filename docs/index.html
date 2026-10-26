@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>中国上場（A株）個別株一覧</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>
+    :root {
+      --bg: #12151c; --bg2: #1a1f2b; --fg: #e8edf5; --muted: #8b95a8;
+      --line: #2a3244; --green: #3dcc8a; --red: #ef6b6b; --yellow: #e0b54a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", "Noto Sans SC", sans-serif;
+      background: var(--bg); color: var(--fg); line-height: 1.45;
+    }
+    header { padding: 1.4rem 1.2rem 1rem; border-bottom: 1px solid var(--line); background: var(--bg2); }
+    h1 { margin: 0 0 .4rem; font-size: 1.35rem; font-weight: 650; }
+    .lede { color: var(--muted); margin: 0; font-size: .95rem; }
+    .meta { margin-top: .7rem; font-size: .9rem; color: var(--muted); }
+    .banner {
+      margin-top: .7rem; padding: .55rem .75rem; border-radius: 6px;
+      background: #2a2430; color: #f0d9a8; font-size: .9rem;
+    }
+    main { padding: 1rem 1.2rem 3rem; }
+    .tabs { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .8rem; }
+    .tab {
+      background: var(--bg2); color: var(--muted); border: 1px solid var(--line);
+      border-radius: 999px; padding: .3rem .8rem; font-size: .82rem; cursor: pointer;
+    }
+    .tab:hover { color: var(--fg); border-color: #3d7aab; }
+    .tab.active { background: #3d7aab; color: #fff; border-color: #3d7aab; }
+    .tab .n { opacity: .75; font-size: .72rem; margin-left: .25rem; }
+    .wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: .82rem; min-width: 680px; }
+    th, td { padding: .42rem .5rem; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+    th { background: #222836; color: var(--muted); font-weight: 600; position: sticky; top: 0; }
+    th[data-key] { cursor: pointer; user-select: none; }
+    th[data-key]:hover { color: var(--fg); }
+    th .arrow { display: inline-block; width: 1em; color: var(--fg); }
+    tr:nth-child(even) td { background: #161b24; }
+    tbody tr:hover td { background: #1d2433; }
+    .num { font-variant-numeric: tabular-nums; text-align: right; }
+    .up { color: var(--green); } .down { color: var(--red); }
+    .miss { color: var(--muted); }
+    .name-cell { max-width: 340px; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>中国上場（A株）個別株一覧</h1>
+    <p class="lede">上海証券取引所・深セン証券取引所に上場するA株（普通株）を、東方財産（EastMoney）の業種分類でタブに集約。終値・前日比・出来高を参考値として併記します。銘柄名は简体中文のまま表示します。</p>
+    <div class="meta" id="meta">読み込み中…（表示は JST）</div>
+    <div class="banner" id="banner" hidden></div>
+  </header>
+  <main id="main"></main>
+  <script src="common.js?v=20261026a"></script>
+  <script>
+    let DATA = null;
+    let activeCat = "all";
+    let sortKey = "change_pct";
+    let sortDir = -1; // 1: 昇順, -1: 降順（初期は前日比%降順）
+
+    // ソート用の生値を返す。価格欠損は常に末尾にする。
+    function sortVal(item, key) {
+      switch (key) {
+        case "ticker": return item.ticker;
+        case "name": return item.name;
+        case "sector": return item.sector;
+        case "exchange": return item.exchange;
+        case "close": case "change_pct": case "volume":
+          return item.price && item.price[key] != null ? item.price[key] : null;
+        default: return null;
+      }
+    }
+
+    function sortItems(items) {
+      if (!sortKey) return items;
+      const keyed = items.map((item, idx) => ({ item, idx, v: sortVal(item, sortKey) }));
+      keyed.sort((a, b) => {
+        if (a.v == null && b.v == null) return a.idx - b.idx;
+        if (a.v == null) return 1;
+        if (b.v == null) return -1;
+        let c = 0;
+        if (typeof a.v === "number" && typeof b.v === "number") c = a.v - b.v;
+        else c = String(a.v).localeCompare(String(b.v), "ja");
+        return c !== 0 ? c * sortDir : a.idx - b.idx;
+      });
+      return keyed.map(x => x.item);
+    }
+
+    // ISO 形式（2026-10-26T17:30:00+08:00）を「2026年10月26日 午後5時30分」に整形する
+    function fmtTime(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      if (isNaN(d)) return "—";
+      const p = n => String(n).padStart(2, "0");
+      const ampm = d.getHours() < 12 ? "午前" : "午後";
+      const h12 = d.getHours() % 12 === 0 ? 12 : d.getHours() % 12;
+      return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${ampm}${h12}時${p(d.getMinutes())}分`;
+    }
+
+    function row(item, showCat) {
+      const price = item.price || null;
+      const chg = signed(price && price.change_pct);
+      const close = price && price.close != null ? price.close.toLocaleString("ja-JP", { maximumFractionDigits: 2 }) : "データなし";
+      const cls = price && price.close != null ? (chg.c || "") : "miss";
+      const vol = price && price.volume != null ? price.volume.toLocaleString("ja-JP") : "—";
+      return `<tr data-code="${item.ticker}">
+        <td class="num">${item.ticker}</td>
+        <td class="name-cell" title="${item.name}">${item.name}</td>
+        <td>${item.exchange}</td>
+        ${showCat ? `<td>${item.sector}</td>` : ""}
+        <td class="num ${cls}">${close}</td>
+        <td class="num ${cls}">${chg.t}</td>
+        <td class="num">${vol}</td>
+      </tr>`;
+    }
+
+    function th(label, key) {
+      const arrow = sortKey === key ? (sortDir === 1 ? "▲" : "▼") : "";
+      return `<th class="${["ticker", "close", "change_pct", "volume"].includes(key) ? "num" : ""}" data-key="${key}">${label}<span class="arrow">${arrow}</span></th>`;
+    }
+
+    function table(items, showCat) {
+      return `<div class="wrap"><table>
+        <thead><tr>
+          ${th("ティッカー", "ticker")}${th("銘柄名", "name")}${th("取引所", "exchange")}
+          ${showCat ? th("セクター", "sector") : ""}
+          ${th("終値（参考値）", "close")}${th("前日比％", "change_pct")}${th("出来高（参考値）", "volume")}
+        </tr></thead>
+        <tbody>${items.map(i => row(i, showCat)).join("")}</tbody>
+      </table></div>`;
+    }
+
+    function render() {
+      const cats = DATA.categories || [];
+      const items = DATA.items || [];
+      const main = document.getElementById("main");
+      if (activeCat !== "all" && !cats.some(c => c.id === activeCat)) activeCat = "all";
+      const allBtn = `<button class="tab ${activeCat === "all" ? "active" : ""}" data-cat="all">全て<span class="n">${items.length}</span></button>`;
+      const tabs = `<div class="tabs">${allBtn}${cats.map(c =>
+        `<button class="tab ${c.id === activeCat ? "active" : ""}" data-cat="${c.id}">${c.title}<span class="n">${c.count}</span></button>`
+      ).join("")}</div>`;
+      const shown = sortItems(activeCat === "all" ? items : items.filter(i => i.sector === activeCat));
+      main.innerHTML = tabs + table(shown, activeCat === "all");
+      main.querySelectorAll(".tab").forEach(b =>
+        b.addEventListener("click", () => { activeCat = b.dataset.cat; render(); }));
+      main.querySelectorAll("th[data-key]").forEach(h =>
+        h.addEventListener("click", () => {
+          const k = h.dataset.key;
+          if (sortKey === k) { sortDir = -sortDir; } else { sortKey = k; sortDir = 1; }
+          render();
+        }));
+    }
+
+    async function main() {
+      const res = await fetch("data/latest.json");
+      if (!res.ok) {
+        document.getElementById("meta").textContent = "latest.json がありません。先に ./run_local.sh --no-serve を実行してください。";
+        return;
+      }
+      DATA = await res.json();
+      document.getElementById("meta").textContent =
+        `最終更新: ${fmtTime(DATA.generated_at)}　銘柄数: ${DATA.count ?? "—"}　価格データ: ${DATA.with_price_count ?? "—"} 銘柄`;
+      const banner = document.getElementById("banner");
+      if (DATA.reference_note) {
+        banner.hidden = false;
+        banner.textContent = `価格は ${DATA.reference_note} です（サイトの免責表現としての「参考値」。東方財産で取得できない銘柄は Yahoo Finance の値、それも取得できない銘柄は「データなし」で行を残します。中国の長期連休（春節・国慶節等）は直近営業日ベースの前日比になります。値幅制限は通常±10%、創業板・科創板±20%、ST/*ST株±5%です）。`;
+      }
+      render();
+    }
+    main().catch(e => {
+      document.getElementById("meta").textContent = "読み込み失敗: " + e;
+    });
+  </script>
+</body>
+</html>
