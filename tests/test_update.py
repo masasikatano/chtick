@@ -2,7 +2,7 @@
 
 import json
 
-from src.update import OTHER, TOP_SECTORS, UNCATEGORIZED, aggregate_sector, build_payload
+from src.update import OTHER, TOP_SECTORS, SECTOR_JA, UNCATEGORIZED, aggregate_sector, build_payload, sector_label
 
 
 def _rec(ticker, name, exchange="上海"):
@@ -70,3 +70,13 @@ def test_UTF8中国語銘柄名が化けない():
     assert loaded["items"][0]["name"] == "浦发银行"
     assert loaded["items"][1]["name"] == "宁德时代"
     assert "浦发银行" in text  # ensure_ascii=False で UTF-8 のまま
+
+
+def test_セクター名は日本語変換され未登録は中国語のまま():
+    assert sector_label("银行Ⅱ") == "銀行Ⅱ"
+    assert sector_label("半导体") == "半導体"
+    assert sector_label(UNCATEGORIZED) == UNCATEGORIZED
+    assert sector_label("登録なし") == "登録なし"  # 未登録は中国語のまま
+    payload = build_payload([_rec("600000", "浦发银行")], {"600000": _price(sector="电池")})
+    assert payload["items"][0]["sector"] == "電池"
+    assert payload["categories"][0]["id"] == "電池"
