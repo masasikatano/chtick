@@ -1,6 +1,6 @@
 # chtick — 中国A株 業種別一覧サイト
 
-上海証券取引所（SSE）・深セン証券取引所（SZSE）上場の A 株（普通株）約5,400銘柄を業種タブ別に一覧表示する静的サイト。GitHub Actions で平日日次自動更新し、GitHub Pages で公開する。仕様の詳細は `spec.md`、構成の詳細は `architecture.md`。
+上海証券取引所（SSE）・深セン証券取引所（SZSE）上場の A 株（普通株）約5,400銘柄を業種タブ別に一覧表示する静的サイト。Oracle Cloud VM の cron で平日日次自動更新（JST 17:30）し、GitHub Pages で公開する。仕様の詳細は `spec.md`、構成の詳細は `architecture.md`。
 
 ## エージェントへの指示
 

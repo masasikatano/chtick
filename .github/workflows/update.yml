@@ -1,9 +1,9 @@
 name: update-tick-list
 
 on:
-  schedule:
-    # 平日 09:30 UTC = CST 17:30（JST 18:30）。A株市場クローズ（15:00 CST）直後の確定値
-    - cron: "30 9 * * 1-5"
+  # 定期実行は Oracle Cloud VM の cron（JST 平日 17:30）に移管した。
+  # GitHub Actions のスケジュール実行はキューイングで数時間遅延することがあるため。
+  # 手動での再実行が必要な場合は workflow_dispatch を使う。
   workflow_dispatch:
 
 permissions:
