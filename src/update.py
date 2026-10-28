@@ -174,7 +174,9 @@ def build_payload(records: list[dict], prices: dict[str, dict]) -> dict:
     raw_sectors: dict[str, int] = {}
     for rec in records:
         price = prices.get(rec["ticker"])
-        sector = sector_label((price or {}).get("sector") or UNCATEGORIZED)
+        # 業種は clist 由来のマスタ側（f100）を優先し、無い銘柄は quote API 側で補完する
+        sector = sector_label(master.sector_of(rec.get("fields"))
+                              or (price or {}).get("sector") or UNCATEGORIZED)
         raw_sectors[sector] = raw_sectors.get(sector, 0) + 1
         if price is not None:
             as_of_dates.append(price["as_of"])

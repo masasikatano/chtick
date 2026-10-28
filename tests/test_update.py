@@ -80,3 +80,37 @@ def test_セクター名は日本語変換され未登録は中国語のまま()
     payload = build_payload([_rec("600000", "浦发银行")], {"600000": _price(sector="电池")})
     assert payload["items"][0]["sector"] == "電池"
     assert payload["categories"][0]["id"] == "電池"
+
+
+def _rec_with_sector(ticker, name, sector, exchange="上海"):
+    rec = _rec(ticker, name, exchange)
+    rec["fields"]["f100"] = sector
+    return rec
+
+
+def test_マスタ側f100を優先してセクター決定():
+    # clist 由来のマスタ業種があれば価格側の sector より優先される
+    payload = build_payload([_rec_with_sector("600000", "浦发银行", "银行Ⅱ")],
+                            {"600000": _price(sector="半导体")})
+    assert payload["items"][0]["sector"] == "銀行Ⅱ"
+
+
+def test_マスタ側f100が無い銘柄は価格側セクターで補完():
+    payload = build_payload([_rec("600000", "浦发银行")], {"600000": _price(sector="半导体")})
+    assert payload["items"][0]["sector"] == "半導体"
+
+
+def test_マスタ側f100がハイフンや欠損でも価格側にフォールバック():
+    rec = _rec_with_sector("600000", "浦发银行", "-")  # 廃止銘柄等の "-"
+    payload = build_payload([rec], {"600000": _price(sector="半导体")})
+    assert payload["items"][0]["sector"] == "半導体"
+    rec["fields"].pop("f100")
+    payload = build_payload([rec], {"600000": _price(sector="半导体")})
+    assert payload["items"][0]["sector"] == "半導体"
+
+
+def test_価格取得失敗でもマスタ側f100があれば未分類にならない():
+    payload = build_payload([_rec_with_sector("600000", "浦发银行", "银行Ⅱ")], {})
+    item = payload["items"][0]
+    assert item["price"] is None
+    assert item["sector"] == "銀行Ⅱ"

@@ -34,7 +34,7 @@ SZSE_REFERER = "https://www.szse.cn/market/product/stock/list/index.html"
 PAGE_SIZE = 100  # EastMoney の clist は pz 最大100
 # 上海A股・科創板・深センA股・創業板のみ（B股/BSE/ETF 等は含まない）
 FS = "m:1+t:2,m:1+t:23,m:0+t:6,m:0+t:80"
-FIELDS = "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15,f16,f17,f18,f20,f21,f22,f23,f24,f25,f62,f115,f128,f136,f152"
+FIELDS = "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15,f16,f17,f18,f20,f21,f22,f23,f24,f25,f62,f100,f115,f128,f136,f152"
 
 # 明示的に除外するコード帯（spec.md Q3。8xxxxx/4xxxxx/92xxxx=BSE、
 # 900=B股(上海)、200=B股(深セン)、15/16=ETF/LOF、50/58=ETF/REIT 等、11/12=転換社債・社債）
@@ -51,6 +51,12 @@ PROBE_RANGES = (
 
 SHANGHAI = "上海"
 SHENZHEN = "深セン"
+
+
+def sector_of(fields: dict) -> str | None:
+    """clist の fields から業種（f100）を取り出す（"-"/空は None）。"""
+    sector = (fields or {}).get("f100")
+    return str(sector) if sector and sector != "-" else None
 
 
 def exchange_of(code: str) -> str:

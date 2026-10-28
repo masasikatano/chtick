@@ -77,6 +77,14 @@ def test_parse_clist_page_データなしは空リスト():
     assert parse_clist_page({}) == []
 
 
+def test_sector_ofはf100を取り出しハイフンや欠損はNone():
+    from src.master import sector_of
+    assert sector_of({"f100": "银行Ⅱ"}) == "银行Ⅱ"
+    assert sector_of({"f100": "-"}) is None
+    assert sector_of({}) is None
+    assert sector_of(None) is None
+
+
 class _FakeResp:
     def __init__(self, payload):
         self._payload = payload
