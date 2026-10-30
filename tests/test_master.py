@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.master import exchange_of, is_a_share, parse_clist_page
+from src.master import exchange_of, is_a_share, is_listed, parse_clist_page
 
 
 @pytest.mark.parametrize("code", [
@@ -75,6 +75,20 @@ def test_parse_clist_page_普通株のみ抽出して全列保持():
 def test_parse_clist_page_データなしは空リスト():
     assert parse_clist_page({"data": None}) == []
     assert parse_clist_page({}) == []
+
+
+def test_is_listedは退付き銘柄名を除外():
+    assert is_listed("浦発銀行")
+    assert not is_listed("赛隆退")
+    assert not is_listed("神城A退")
+
+
+def test_parse_clist_pageは退付き銘柄を除外():
+    records = parse_clist_page({"data": {"diff": [
+        {"f12": "600000", "f14": "浦発銀行"},
+        {"f12": "002898", "f14": "赛隆退"},
+    ]}})
+    assert [r["ticker"] for r in records] == ["600000"]
 
 
 def test_sector_ofはf100を取り出しハイフンや欠損はNone():
