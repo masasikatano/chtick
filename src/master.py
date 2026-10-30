@@ -73,6 +73,11 @@ def is_a_share(code: str) -> bool:
     return code[0] in "036"
 
 
+def is_listed(name: str) -> bool:
+    """上場中かどうか（銘柄名に「退」が付くのは上場廃止銘柄のみ）。"""
+    return "退" not in name
+
+
 def parse_clist_page(data: dict) -> list[dict]:
     """clist レスポンスの1ページをレコードリストにパースする。"""
     diff = (data.get("data") or {}).get("diff")
@@ -82,7 +87,7 @@ def parse_clist_page(data: dict) -> list[dict]:
     for fields in diff:
         code = str(fields.get("f12") or "").strip()
         name = str(fields.get("f14") or "").strip()
-        if not code or not is_a_share(code):
+        if not code or not is_a_share(code) or not is_listed(name):
             continue
         records.append({
             "ticker": code,
@@ -162,7 +167,7 @@ def fetch_sse(timeout: int = 30) -> list[dict] | None:
     records = []
     for code, name in _SSE_ROW.findall(res.text):
         # 上海の A株は 6xxxxx のみ（36xxxx 優先株・900 B股・5x ETF 等は除外）
-        if not (code.startswith("6") and is_a_share(code)):
+        if not (code.startswith("6") and is_a_share(code) and is_listed(name)):
             continue
         records.append({"ticker": code, "name": name, "exchange": SHANGHAI, "fields": {}})
     return records
@@ -198,9 +203,10 @@ def _fetch_szse_cninfo(timeout: int = 30) -> list[dict] | None:
     for s in stocks:
         code = str(s.get("code") or "").strip()
         name = str(s.get("zwjc") or "").strip()
-        # cninfo のリストは全市場対象のため深セン（0xxxxx/3xxxxx）のみに絞る
+        # cninfo のリストは全市場対象のため深セン（0xxxxx/3xxxxx）のみに絞る。
+        # 上場廃止銘柄（名前に「退」）は価格が取得できないため除外する
         if s.get("category") != "A股" or code[:1] not in "03" \
-                or not (code and name and is_a_share(code)):
+                or not (code and name and is_a_share(code) and is_listed(name)):
             continue
         records.append({"ticker": code, "name": name, "exchange": SHENZHEN, "fields": {}})
     return records
@@ -234,7 +240,7 @@ def _fetch_szse_report(timeout: int = 30) -> list[dict] | None:
             for row in rows:
                 code = str(row.get("agdm") or "").strip()
                 name = _TAG.sub("", str(row.get("agjc") or "")).strip()
-                if not (code and name and is_a_share(code)):
+                if not (code and name and is_a_share(code) and is_listed(name)):
                     continue
                 records.append({"ticker": code, "name": name, "exchange": SHENZHEN, "fields": {}})
             if page >= int(payload.get("metadata", {}).get("pagecount") or 1):
@@ -280,7 +286,8 @@ def probe_via_ulist(timeout: int = 30) -> list[dict] | None:
             diff = (res.json().get("data") or {}).get("diff") or []
             for fields in diff:
                 code = str(fields.get("f12") or "").strip()
-                if code and code != "-" and is_a_share(code) and code not in records:
+                name = str(fields.get("f14") or "").strip()
+                if code and code != "-" and is_a_share(code) and is_listed(name) and code not in records:
                     records[code] = {
                         "ticker": code,
                         "name": str(fields.get("f14") or "").strip(),

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ヒートマップ（時価総額上位） | 中国上場（A株）個別株一覧</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>
+    :root {
+      --bg: #12151c; --bg2: #1a1f2b; --fg: #e8edf5; --muted: #8b95a8;
+      --line: #2a3244;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", "Noto Sans SC", sans-serif;
+      background: var(--bg); color: var(--fg); line-height: 1.45;
+    }
+    header { padding: 1.4rem 1.2rem 1rem; border-bottom: 1px solid var(--line); background: var(--bg2); }
+    h1 { margin: 0 0 .4rem; font-size: 1.35rem; font-weight: 650; }
+    .lede { color: var(--muted); margin: 0; font-size: .95rem; }
+    nav { margin-top: .7rem; font-size: .9rem; }
+    nav a { color: #7db8dd; }
+    main { padding: 1rem 1.2rem 3rem; }
+    .note { color: var(--muted); font-size: .85rem; margin: 0 0 .8rem; }
+    .tradingview-widget-container { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ヒートマップ（時価総額上位）</h1>
+    <p class="lede">中国株全体をセクター別・時価総額基準・前日比カラーで表示します。銘柄の選定・件数は TradingView ウィジェットにお任せです。</p>
+    <nav><a href="index.html">← 一覧テーブルに戻る</a></nav>
+  </header>
+  <main>
+    <p class="note">参考値・TradingView提供のデータです。表示内容は TradingView から直接取得され、当サイトの更新パイプラインとは連動しません。</p>
+    <!-- TradingView Widget BEGIN -->
+    <div class="tradingview-widget-container">
+      <div class="tradingview-widget-container__widget"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js" async>
+      {
+        "dataSource": "HSTECH",
+        "grouping": "sector",
+        "blockSize": "market_cap_basic",
+        "blockColor": "change",
+        "locale": "ja",
+        "symbolUrl": "",
+        "colorTheme": "dark",
+        "hasTopBar": true,
+        "isDataSetEnabled": true,
+        "isZoomEnabled": true,
+        "hasSymbolTooltip": true,
+        "width": "100%",
+        "height": 600
+      }
+      </script>
+    </div>
+    <!-- TradingView Widget END -->
+  </main>
+</body>
+</html>
